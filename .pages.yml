@@ -1,0 +1,60 @@
+media:
+  - name: noticias
+    label: Fotos de noticias
+    input: media/noticias
+    output: /media/noticias
+    extensions: [jpg, jpeg, png, webp]
+    rename: safe
+content:
+  - name: noticias
+    label: Noticias
+    type: collection
+    path: content/noticias
+    format: yaml-frontmatter
+    filename: "{year}-{month}-{day}-{primary}.md"
+    view:
+      fields: [title, date]
+      primary: title
+      sort: [date, title]
+      default:
+        sort: date
+        order: desc
+    fields:
+      - name: title
+        label: Título
+        type: string
+        required: true
+      - name: date
+        label: Fecha
+        type: date
+        required: true
+      - name: image
+        label: Foto principal
+        type: image
+        options:
+          media: noticias
+      - name: summary
+        label: Resumen (1 o 2 líneas, aparece en la lista de noticias)
+        type: text
+      - name: author
+        label: Autor/a (opcional)
+        type: string
+      - name: borrador
+        label: Borrador (no se publica mientras esté activado)
+        type: boolean
+        default: false
+      - name: body
+        label: Texto de la nota
+        type: rich-text
+  - name: ajustes
+    label: Ajustes (Instagram)
+    type: file
+    path: content/ajustes.json
+    format: json
+    fields:
+      - name: instagram
+        label: Usuario de Instagram (sin @)
+        type: string
+      - name: behold_feed_id
+        label: Feed ID de Behold (para mostrar las últimas publicaciones)
+        type: string
