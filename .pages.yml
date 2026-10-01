@@ -1,7 +1,7 @@
 media:
   - name: noticias
     label: Fotos de noticias
-    input: media/noticias
+    input: repositorio/media/noticias
     output: /media/noticias
     extensions: [jpg, jpeg, png, webp]
     rename: safe
@@ -9,7 +9,7 @@ content:
   - name: noticias
     label: Noticias
     type: collection
-    path: content/noticias
+    path: repositorio/content/noticias
     format: yaml-frontmatter
     filename: "{year}-{month}-{day}-{primary}.md"
     view:
@@ -49,7 +49,7 @@ content:
   - name: ajustes
     label: Ajustes (Instagram)
     type: file
-    path: content/ajustes.json
+    path: repositorio/content/ajustes.json
     format: json
     fields:
       - name: instagram
