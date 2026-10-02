@@ -58,3 +58,30 @@ content:
       - name: behold_feed_id
         label: Feed ID de Behold (para mostrar las últimas publicaciones)
         type: string
+  - name: precios
+    label: Precios del alquiler
+    type: file
+    path: repositorio/content/precios.json
+    format: json
+    fields:
+      - name: vigencia
+        label: Vigentes desde (ej. 1 de febrero de 2027)
+        type: string
+      - name: g1_hora
+        label: Grupo 1 Flexible - hora individual
+        type: number
+      - name: g1_modulo
+        label: Grupo 1 Flexible - módulo 4 h
+        type: number
+      - name: g2_hora
+        label: Grupo 2 Frecuente - hora individual
+        type: number
+      - name: g2_modulo
+        label: Grupo 2 Frecuente - módulo 4 h
+        type: number
+      - name: g3_hora
+        label: Grupo 3 Estable - hora individual
+        type: number
+      - name: g3_modulo
+        label: Grupo 3 Estable - módulo 4 h
+        type: number
