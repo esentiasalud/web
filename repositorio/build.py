@@ -6,8 +6,8 @@ def open(f, mode="r", **kw):
     return builtins.open(f, mode, **kw)
 
 BASE = "https://www.esentiasalud.com.ar"
-WA_ESENTIA = "5493535635719"
-TEL_TXT = "353 563-5719"
+WA_ESENTIA = "5493537664850"
+TEL_TXT = "353 766-4850"
 MAIL = "esentiasalud@gmail.com"
 ADDR = "Mendoza 374/384 (esq. Pasaje Falucho)"
 CITY = "Villa María, Córdoba"
