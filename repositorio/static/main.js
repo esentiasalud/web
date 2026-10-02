@@ -1,7 +1,8 @@
 (function(){
   var f=document.getElementById('calcForm');
   if(!f)return;
-  var T=[{n:'Grupo 1 · Flexible',hora:6500,modulo:24000},{n:'Grupo 2 · Frecuente',hora:6000,modulo:22000},{n:'Grupo 3 · Estable',hora:5500,modulo:20000}];
+  var T=[{n:'Grupo 1 · Flexible',hora:7000,modulo:26000},{n:'Grupo 2 · Frecuente',hora:6500,modulo:24000},{n:'Grupo 3 · Estable',hora:5500,modulo:20000}];
+  try{var d=JSON.parse(f.getAttribute('data-tarifas')||'null');if(d&&d.length===3)T=d;}catch(e){}
   var $=function(id){return document.getElementById(id)};
   var money=function(n){return '$ '+Math.round(n).toLocaleString('es-AR')};
   var clamp=function(v,a,b){return Math.min(b,Math.max(a,v))};

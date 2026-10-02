@@ -22,6 +22,30 @@ try:
     AJ = json.load(open("content/ajustes.json", encoding="utf-8"))
 except Exception:
     AJ = {}
+PRECIOS = {"vigencia": "1 de octubre de 2026", "g1_hora": 7000, "g1_modulo": 26000, "g2_hora": 6500, "g2_modulo": 24000, "g3_hora": 5500, "g3_modulo": 20000}
+try:
+    _p = json.load(open("content/precios.json", encoding="utf-8"))
+    for _k in PRECIOS:
+        if _p.get(_k) not in (None, ""):
+            PRECIOS[_k] = str(_p[_k]).strip() if _k == "vigencia" else int(float(str(_p[_k]).replace(".", "").replace("$", "").replace(",", ".").strip()))
+except Exception:
+    pass
+def pesos(n): return "$" + f"{int(round(n)):,}".replace(",", ".")
+TARIFAS = [dict(n="Grupo 1 · Flexible", corto="Flexible", rango="Menos de 15 h por mes", hora=PRECIOS["g1_hora"], modulo=PRECIOS["g1_modulo"]),
+           dict(n="Grupo 2 · Frecuente", corto="Frecuente", rango="De 15 a 30 h por mes", hora=PRECIOS["g2_hora"], modulo=PRECIOS["g2_modulo"]),
+           dict(n="Grupo 3 · Estable", corto="Estable", rango="Más de 30 h por mes", hora=PRECIOS["g3_hora"], modulo=PRECIOS["g3_modulo"])]
+_best = min(range(3), key=lambda i: TARIFAS[i]["modulo"])
+PLANS_HTML = "".join(
+    f'<div class="plan{" best" if i == _best else ""}">' + ('<span class="badge">Mejor precio</span>' if i == _best else "") +
+    f'<div><div class="t">Grupo {i+1}</div><h3>{t["corto"]}</h3><div class="r">{t["rango"]}</div></div>'
+    f'<div class="ln"><span class="k">Hora individual</span><span class="v">{pesos(t["hora"])}</span></div>'
+    f'<div class="ln"><span class="k">Módulo 4 h</span><span class="v">{pesos(t["modulo"])}<small>{pesos(t["modulo"]/4)} por hora</small></span></div></div>'
+    for i, t in enumerate(TARIFAS))
+TARIFAS_JSON = json.dumps([{"n": t["n"], "hora": t["hora"], "modulo": t["modulo"]} for t in TARIFAS], ensure_ascii=False).replace('"', "&quot;")
+# ejemplo inicial de la calculadora: 2 días x 4 h
+_H = 2 * 4 * 4
+_g = TARIFAS[2] if _H > 30 else (TARIFAS[1] if _H >= 15 else TARIFAS[0])
+CALC0 = dict(grp=_g["n"], total=pesos(_g["modulo"] * 8).replace("$", "$ "), dia=pesos(_g["modulo"]).replace("$", "$ "), hora=pesos(_g["modulo"] / 4).replace("$", "$ "))
 INSTAGRAM = (AJ.get("instagram") or "").strip().lstrip("@").rstrip("/").split("/")[-1]
 BEHOLD_ID = (AJ.get("behold_feed_id") or "").strip()
 CURVES = '<img class="wm" src="img/isotipo-blanco.png" alt="" width="800" height="674"><svg class="curves" viewBox="0 0 600 400" preserveAspectRatio="xMaxYMin slice" aria-hidden="true"><path d="M180 -20 C 200 140, 420 120, 460 260 S 560 420, 640 380" fill="none" stroke="#6cc3b0" stroke-width="2"/><path d="M640 120 C 560 130, 520 220, 600 300" fill="none" stroke="#6cc3b0" stroke-width="2" opacity=".7"/></svg>'
@@ -431,13 +455,13 @@ gal_html='<div class="gallery">'+''.join(f'<figure class="{c}"><a href="img/{f}.
 # ---------- alquiler ----------
 msg_alq = "Hola Esentia, soy profesional de la salud y quiero coordinar una entrevista para alquilar un consultorio. Mi profesión es: "
 alq_ld = [{"@context":"https://schema.org","@type":"Service","name":"Alquiler de consultorios por hora","provider":{"@id":BASE+"/#esentia"},"areaServed":"Villa María, Córdoba","serviceType":"Alquiler de consultorios para profesionales de la salud",
-  "offers":[{"@type":"Offer","name":n,"price":str(p),"priceCurrency":"ARS"} for n,p in [("Hora suelta Grupo 1",6500),("Módulo 4 h Grupo 1",24000),("Hora suelta Grupo 2",6000),("Módulo 4 h Grupo 2",22000),("Hora suelta Grupo 3",5500),("Módulo 4 h Grupo 3",20000)]]}]
+  "offers":[{"@type":"Offer","name":n,"price":str(p),"priceCurrency":"ARS"} for n,p in [(f"{k} Grupo {i+1}", t[c]) for i,t in enumerate(TARIFAS) for k,c in (("Hora individual","hora"),("Módulo 4 h","modulo"))]]}]
 alq_body = f'''
 <section class="hero navy">{CURVES}
 <div class="wrap hero-grid"><div class="hero-copy">
 <span class="eyebrow">Alquiler de consultorios · Villa María</span>
 <h1>Tu consultorio por hora, en una <span>comunidad de salud</span></h1>
-<p class="lead">Consultorios equipados para profesionales de la salud, por hora suelta o por módulo de 4 horas, de lunes a viernes de 8 a 21 h. Sin contratos largos y con un precio que baja cuantas más horas usás.</p>
+<p class="lead">Consultorios equipados para profesionales de la salud, por hora individual o por módulo de 4 horas, de lunes a viernes de 8 a 21 h. Sin contratos largos y con un precio que baja cuantas más horas usás.</p>
 <div class="row"><a class="btn wa" href="{wa(WA_ESENTIA,msg_alq)}" target="_blank" rel="noopener">{ICON_CHAT} Pedir una entrevista</a><a class="btn outline-w" href="#precios">Ver precios</a></div>
 </div><img class="hero-photo" src="img/consultorio-luz-natural.jpg" alt="Consultorio de Esentia con mesa de trabajo y luz natural" width="1400" height="933"></div></section>
 
@@ -466,22 +490,20 @@ alq_body = f'''
 </div></section>
 
 <section class="sec band" id="precios"><div class="wrap">
-<div class="sec-head"><span class="eyebrow">Precios desde el 1 de octubre de 2026</span><h2>Cuantas más horas reservás, menos pagás por hora</h2><p class="lead">Tu grupo se define por el total de horas que reservás en el mes, y todas las horas de ese mes se cobran al precio de tu grupo.</p></div>
+<div class="sec-head"><span class="eyebrow">Precios desde el {PRECIOS["vigencia"]}</span><h2>Cuantas más horas reservás, menos pagás por hora</h2><p class="lead">Tu grupo se define por el total de horas que reservás en el mes, y todas las horas de ese mes se cobran al precio de tu grupo.</p></div>
 <div class="plans">
-<div class="plan"><div><div class="t">Grupo 1</div><h3>Flexible</h3><div class="r">Menos de 15 h por mes</div></div><div class="ln"><span class="k">Hora suelta</span><span class="v">$6.500</span></div><div class="ln"><span class="k">Módulo 4 h</span><span class="v">$24.000<small>$6.000 por hora</small></span></div></div>
-<div class="plan"><div><div class="t">Grupo 2</div><h3>Frecuente</h3><div class="r">De 15 a 30 h por mes</div></div><div class="ln"><span class="k">Hora suelta</span><span class="v">$6.000</span></div><div class="ln"><span class="k">Módulo 4 h</span><span class="v">$22.000<small>$5.500 por hora</small></span></div></div>
-<div class="plan best"><span class="badge">Mejor precio</span><div><div class="t">Grupo 3</div><h3>Estable</h3><div class="r">Más de 30 h por mes</div></div><div class="ln"><span class="k">Hora suelta</span><span class="v">$5.500</span></div><div class="ln"><span class="k">Módulo 4 h</span><span class="v">$20.000<small>$5.000 por hora</small></span></div></div>
+{PLANS_HTML}
 </div>
 <div class="fine"><span>Módulo = 4 horas seguidas en un mismo día.</span><span>Los feriados no se cobran.</span><span>Pago a mes vencido: del 1 al 10 precio base, del 11 al 20 +5%, del 21 en adelante +10%.</span></div>
 
 <div class="calc">
-<form id="calcForm" novalidate>
+<form id="calcForm" novalidate data-tarifas="{TARIFAS_JSON}">
 <div><h3>Calculá cuánto pagarías</h3><p class="note">Estimación para un mes de 4 semanas con horarios fijos.</p></div>
 <div class="field"><label for="dias">Días por semana</label><div class="stepper"><button type="button" data-t="dias" data-d="-1" aria-label="Restar un día">−</button><input id="dias" type="number" inputmode="numeric" min="1" max="5" step="1" value="2"><button type="button" data-t="dias" data-d="1" aria-label="Sumar un día">+</button></div></div>
 <div class="field"><label for="horas">Horas seguidas cada día</label><div class="stepper"><button type="button" data-t="horas" data-d="-0.5" aria-label="Restar media hora">−</button><input id="horas" type="number" inputmode="decimal" min="0.5" max="13" step="0.5" value="4"><button type="button" data-t="horas" data-d="0.5" aria-label="Sumar media hora">+</button></div></div>
 </form>
-<div class="result" aria-live="polite"><span class="grp" id="rGrp">Grupo 3 · Estable</span><div class="big" id="rTotal">$ 160.000</div>
-<dl><dt>Horas en el mes</dt><dd id="rHs">32 h</dd><dt>Costo por día</dt><dd id="rDia">$ 20.000</dd><dt>Promedio por hora</dt><dd id="rHora">$ 5.000</dd></dl>
+<div class="result" aria-live="polite"><span class="grp" id="rGrp">{CALC0["grp"]}</span><div class="big" id="rTotal">{CALC0["total"]}</div>
+<dl><dt>Horas en el mes</dt><dd id="rHs">32 h</dd><dt>Costo por día</dt><dd id="rDia">{CALC0["dia"]}</dd><dt>Promedio por hora</dt><dd id="rHora">{CALC0["hora"]}</dd></dl>
 <p class="note">Si el mes tiene 5 semanas de tus días, también se cobran. Precio base pagando del 1 al 10.</p></div>
 </div>
 </div></section>
