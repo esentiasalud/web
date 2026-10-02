@@ -18,6 +18,24 @@ os.chdir(ROOT)
 if os.path.isdir(OUT): shutil.rmtree(OUT)
 shutil.copytree("static", OUT)
 if os.path.isdir("media"): shutil.copytree("media", os.path.join(OUT, "media"))
+try:  # achica las fotos subidas desde el panel para que la web cargue rápido
+    from PIL import Image, ImageOps
+    for _r, _d, _f in os.walk(os.path.join(OUT, "media")):
+        for _n in _f:
+            _fp = os.path.join(_r, _n)
+            if _n.lower().rsplit(".", 1)[-1] not in ("jpg", "jpeg", "png", "webp"): continue
+            try:
+                _im = Image.open(_fp)
+                if max(_im.size) <= 1400 and os.path.getsize(_fp) < 450_000: continue
+                _fmt = _im.format
+                _im = ImageOps.exif_transpose(_im)
+                _im.thumbnail((1400, 1400))
+                if _fmt == "JPEG": _im.convert("RGB").save(_fp, "JPEG", quality=80, optimize=True, progressive=True)
+                else: _im.save(_fp, _fmt, optimize=True)
+            except Exception:
+                pass
+except Exception:
+    pass
 try:
     AJ = json.load(open("content/ajustes.json", encoding="utf-8"))
 except Exception:
@@ -57,51 +75,140 @@ ICON_CHAT = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke=
 ICON_ARROW = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
 
 # ---------- profesionales ----------
-P = {
- "mayra": dict(nombre="Mayra Marzioni", foto="mayra-marzioni.jpg", wa="5493534119868",
-   role="Lic. en Psicopedagogía · UNVM",
-   desc="Trabaja en el ámbito clínico con niñas, niños y adolescentes: evaluación, diagnóstico y tratamiento de las dificultades específicas del aprendizaje, y acompañamiento de procesos de inclusión escolar junto a la familia y la escuela.",
-   tags=["Niños y adolescentes","Particular","CUD","Obras sociales"]),
- "emilia": dict(nombre="Emilia Cena", foto="emilia-cena.jpg", wa="5493534767959", mail="emicena@hotmail.com.ar",
-   role="Psicopedagoga",
-   desc="Acompaña y evalúa procesos de aprendizaje de niños y adolescentes desde una mirada integral e interdisciplinaria, tanto en la clínica psicopedagógica como en procesos de inclusión escolar.",
-   tags=["Niños y adolescentes","Inclusión escolar"]),
- "julia": dict(nombre="Julia Dagna", foto="julia-dagna.jpg", wa="5493467438178",
-   role="Lic. en Psicopedagogía",
-   desc="Apoyo escolar con orientación psicopedagógica y enfoque personalizado: técnicas de estudio, ayuda con tareas y materias, y estrategias para la atención, la memoria y la planificación.",
-   tags=["Apoyo escolar","Técnicas de estudio"]),
- "malena": dict(nombre="Malena Donato", foto="malena-donato.jpg", wa="5493472621664", mail="malenadonato1@gmail.com",
-   role="Psicopedagoga · Orientación vocacional",
-   desc="Orientación vocacional ocupacional para quienes terminan la secundaria, jóvenes que quieren repensar su carrera o trabajo, y adultos que buscan nuevos proyectos después de jubilarse. Unas 10 sesiones individuales semanales de 1 hora.",
-   tags=["Adolescentes","Adultos","Orientación vocacional"]),
- "antonella_pp": dict(nombre="Antonella Pantanetti", foto="antonella-pantanetti.jpg", wa="5493537550562",
-   role="Lic. en Psicopedagogía",
-   desc="Acompaña a las infancias en sus experiencias de aprendizaje formal y no formal, con un abordaje que tiene en cuenta a cada paciente y al entorno que lo rodea.",
-   tags=["Infancias"]),
- "nadia": dict(nombre="Nadia Prytz Nilsson", foto="nadia-prytz-nilsson.jpg", wa="5493512059101",
-   role="Lic. y Prof. en Psicología · MP 6992",
-   desc="Egresada de la UNC. Desde 2009 se dedica a la clínica infanto-juvenil, con formación en psicoterapia cognitiva-integrativa y terapia sistémica. Acompaña a niños, adolescentes y sus familias.",
-   tags=["Niños y adolescentes","Familias","Particular","CUD"]),
- "perla": dict(nombre="Perla Faccia", foto="perla-faccia.jpg", wa="5493534252888",
-   role="Lic. en Psicología",
-   desc="Atención psicológica en Esentia. Escribile por WhatsApp para consultar días y horarios.",
-   tags=[]),
- "macarena": dict(nombre="Macarena Pantanetti", foto="macarena-pantanetti.jpg", wa="5493537664850",
-   role="Lic. en Terapia Ocupacional",
-   desc="Acompaña a niñas, niños, adolescentes y adultos para que puedan realizar sus actividades y ocupaciones diarias de la forma más autónoma posible, con trabajo en equipo y una mirada puesta en el proyecto de vida de cada persona.",
-   tags=["Niños","Adolescentes","Adultos","Particular","CUD"]),
- "antonella_et": dict(nombre="Antonella Pantanetti", foto="antonella-pantanetti.jpg", wa="5493537550562",
-   role="Estimulación temprana · Puericultora · Doula",
-   desc="Acompaña a familias en la gestación, el nacimiento y el puerperio, con un abordaje integral y afectivo. Brinda orientación en situaciones de crianza, en encuentros individuales, de pareja o grupales, y coordina talleres para profesionales y estudiantes.",
-   tags=["Gestación y puerperio","Crianza","Talleres"]),
+import glob, html as _html, unicodedata, datetime as _dt
+MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]
+
+def _simple_yaml(txt):
+    d = {}; key = None; mode = ""
+    for ln in txt.splitlines():
+        m = re.match(r'^([A-Za-z_][\w-]*):\s*(.*)$', ln)
+        if m and not ln.startswith(" "):
+            key = m.group(1); v = m.group(2).strip(); mode = ""
+            if v[:1] in ("|", ">") and len(v) <= 2: mode = v[0]; v = ""
+            elif len(v) > 1 and v[0] == v[-1] == '"':
+                try: v = json.loads(v)
+                except Exception: v = v[1:-1]
+            elif len(v) > 1 and v[0] == v[-1] == "'": v = v[1:-1].replace("''", "'")
+            elif v.lower() in ("true", "false"): v = (v.lower() == "true")
+            d[key] = v
+        elif key is not None and isinstance(d.get(key), str):
+            if not ln.strip():
+                if mode and d[key]: d[key] += "\n\n"
+            else:
+                sep = "" if (not d[key] or d[key].endswith("\n")) else ("\n" if mode == "|" else " ")
+                d[key] += sep + ln.strip()
+    return {k: (v.strip() if isinstance(v, str) else v) for k, v in d.items()}
+
+def _simple_md(t):
+    def inline(x):
+        x = re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', r'<img src="\2" alt="\1">', x)
+        x = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', x)
+        x = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', x)
+        return re.sub(r'(?<![\w*])\*(.+?)\*(?!\w)', r'<em>\1</em>', x)
+    out = []
+    for b in re.split(r'\n\s*\n', t.strip()):
+        b = b.strip()
+        if not b: continue
+        if b.startswith("<"): out.append(b); continue
+        h = re.match(r'^(#{1,4})\s+(.*)$', b)
+        ls = b.splitlines()
+        if h: n = max(2, min(len(h.group(1)), 4)); out.append(f"<h{n}>{inline(h.group(2))}</h{n}>")
+        elif all(re.match(r'^\s*[-*]\s+', l) for l in ls): out.append("<ul>" + "".join("<li>" + inline(re.sub(r'^\s*[-*]\s+', '', l)) + "</li>" for l in ls) + "</ul>")
+        elif all(re.match(r'^\s*\d+[.)]\s+', l) for l in ls): out.append("<ol>" + "".join("<li>" + inline(re.sub(r'^\s*\d+[.)]\s+', '', l)) + "</li>" for l in ls) + "</ol>")
+        elif all(l.startswith(">") for l in ls): out.append("<blockquote><p>" + inline(" ".join(l.lstrip("> ") for l in ls)) + "</p></blockquote>")
+        else: out.append("<p>" + inline(b.replace("\n", "<br>")) + "</p>")
+    return "\n".join(out)
+
+def _yaml(txt):
+    try:
+        import yaml
+        return yaml.safe_load(txt) or {}
+    except Exception:
+        return _simple_yaml(txt)
+
+def _md(txt):
+    try:
+        import markdown
+        return markdown.markdown(txt, extensions=["extra", "sane_lists"])
+    except Exception:
+        return _simple_md(txt)
+
+def _slugify(x):
+    x = unicodedata.normalize("NFKD", x).encode("ascii", "ignore").decode()
+    return re.sub(r'[^a-z0-9]+', '-', x.lower()).strip('-')[:70] or "nota"
+
+def _date(v, fn):
+    if isinstance(v, _dt.datetime): return v.date()
+    if isinstance(v, _dt.date): return v
+    m = re.search(r'(\d{4})-(\d{2})-(\d{2})', str(v or "") + " " + fn)
+    return _dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else _dt.date.today()
+
+def _rel(u):
+    u = (u or "").strip()
+    return u.lstrip("/") if u.startswith("/") and not u.startswith("//") else u
+
+def _plain(h): return re.sub(r'\s+', ' ', _html.unescape(re.sub(r'<[^>]+>', ' ', h))).strip()
+
+E_ = _html.escape
+
+# ---------- profesionales (content/profesionales/*.md) ----------
+GROUP_SUB = {
+ "psicopedagogia": "Aprendizaje, inclusión escolar, apoyo escolar y orientación vocacional.",
+ "psicologia": "Acompañamiento psicológico para niños, adolescentes, adultos y familias.",
+ "terapia-ocupacional": "Autonomía e independencia en las actividades de la vida diaria.",
+ "estimulacion-temprana-y-crianza": "Gestación, nacimiento, puerperio y crianza.",
 }
-GROUPS = [
- ("psicopedagogia","Psicopedagogía","Aprendizaje, inclusión escolar, apoyo escolar y orientación vocacional.",["mayra","emilia","julia","malena","antonella_pp"]),
- ("psicologia","Psicología","Acompañamiento psicológico para niños, adolescentes, adultos y familias.",["nadia","perla"]),
- ("terapia-ocupacional","Terapia Ocupacional","Autonomía e independencia en las actividades de la vida diaria.",["macarena"]),
- ("crianza","Estimulación temprana y crianza","Gestación, nacimiento, puerperio y crianza.",["antonella_et"]),
-]
+GROUP_ORDER = list(GROUP_SUB)
+
+def _wa(v):
+    d = re.sub(r'\D', '', str(v or ""))
+    if not d: return ""
+    if d.startswith("549"): return d
+    if d.startswith("54"): return "549" + d[2:]
+    d = d.lstrip("0")
+    if len(d) == 12:  # saca el "15" que va después de la característica
+        for i in (2, 3, 4):
+            if d[i:i+2] == "15": d = d[:i] + d[i+2:]; break
+    return "549" + d
+
+def _truthy(v): return str(v).strip().lower() in ("true", "1", "si", "sí", "yes")
+
+P = {}
+for fn in sorted(glob.glob("content/profesionales/*.md")):
+    raw = open(fn).read()
+    m = re.match(r'^---\s*\n(.*?)\n---\s*\n?(.*)$', raw, re.S)
+    fm = _yaml(m.group(1)) if m else {}
+    if not isinstance(fm, dict) or _truthy(fm.get("oculto", "")): continue
+    nombre = str(fm.get("nombre") or "").strip()
+    if not nombre: continue
+    grupo = str(fm.get("especialidad") or "").strip() or "Otras especialidades"
+    grupo = grupo[:1].upper() + grupo[1:]
+    tags = fm.get("atiende") or ""
+    if isinstance(tags, str) and re.match(r'^\s*-\s', tags): tags = re.split(r'(?:^|\s)-\s+', tags)
+    tags = [str(t).strip() for t in (tags if isinstance(tags, list) else str(tags).split(",")) if str(t).strip()]
+    try: orden = float(str(fm.get("orden") if fm.get("orden") not in (None, "") else 100).replace(",", "."))
+    except Exception: orden = 100.0
+    k = _slugify(os.path.basename(fn)[:-3])
+    while k in P: k += "-2"
+    P[k] = dict(nombre=nombre, grupo=grupo, gid=_slugify(grupo), role=str(fm.get("titulo") or grupo).strip(),
+                desc=str(fm.get("descripcion") or (m.group(2) if m else "") or "").strip(), tags=tags,
+                wa=_wa(fm.get("whatsapp")), mail=str(fm.get("email") or "").strip(), foto=_rel(str(fm.get("foto") or "")), orden=orden)
+
+_gids = sorted({p["gid"] for p in P.values()}, key=lambda g: (GROUP_ORDER.index(g) if g in GROUP_ORDER else 99, g))
+GROUPS = []
+for g in _gids:
+    ks = sorted([k for k in P if P[k]["gid"] == g], key=lambda k: (P[k]["orden"], P[k]["nombre"]))
+    GROUPS.append((g, P[ks[0]]["grupo"], GROUP_SUB.get(g, ""), ks))
 N_PROF = len({p["nombre"] for p in P.values()})
+_names = [g[1].lower() for g in GROUPS]
+ESPECIALIDADES = ", ".join(_names)
+
+def iniciales(n):
+    w = [x for x in re.split(r'\s+', n.strip()) if x]
+    return (w[0][:1] + (w[-1][:1] if len(w) > 1 else "")).upper()
+
+def desc_html(t):
+    return "".join(f'<p class="desc">{E_(x.strip())}</p>' for x in re.split(r'\n\s*\n', t.strip()) if x.strip())
 
 def head(title, desc, path, extra_ld=None, og_img="img/og.jpg"):
     url = BASE + path
@@ -182,120 +289,57 @@ def page(title, desc, path, cur, body, extra_ld=None, scripts=False, og_img="img
 </html>
 '''
 
-SLUG_OVR={"antonella_pp":"antonella-pantanetti-psicopedagogia","antonella_et":"antonella-pantanetti-estimulacion-temprana"}
-def slug(k): return SLUG_OVR.get(k, P[k]["foto"][:-4])
+def slug(k): return k
 GROUP_OF = {k:(gid,name) for gid,name,_,ks in GROUPS for k in ks}
 
 def card(k):
     p = P[k]
-    return f'''<a class="card link" href="profesionales/{slug(k)}.html">
-<div class="ph"><img src="img/{p["foto"]}" alt="{p["nombre"]}" width="600" height="800" loading="lazy"></div>
-<div class="bd"><h3>{p["nombre"]}</h3><p class="role">{p["role"]}</p><span class="more">Ver perfil {ICON_ARROW}</span></div></a>'''
+    ph = (f'<div class="ph"><img src="{E_(p["foto"])}" alt="{E_(p["nombre"])}" loading="lazy"></div>' if p["foto"]
+          else f'<div class="ph ph-ini" aria-hidden="true"><span>{iniciales(p["nombre"])}</span></div>')
+    return f'''<a class="card link" href="profesionales/{k}.html">
+{ph}
+<div class="bd"><h3>{E_(p["nombre"])}</h3><p class="role">{E_(p["role"])}</p><span class="more">Ver perfil {ICON_ARROW}</span></div></a>'''
 
 def detail(sl):
-    keys=[k for k in P if slug(k)==sl][:1]; p=P[keys[0]]; first=p["nombre"].split()[0]
-    groups=[GROUP_OF[k] for k in keys]
-    specs=""
-    for k in keys:
-        q=P[k]; tags="".join(f"<li>{t}</li>" for t in q["tags"])
-        tags=f'<ul class="tags" aria-label="Atiende">{tags}</ul>' if tags else ""
-        h=f'<h2 class="spec-t">{GROUP_OF[k][1]}</h2>' if len(keys)>1 else ""
-        specs+=f'<div class="spec">{h}<p class="role">{q["role"]}</p><p class="desc">{q["desc"]}</p>{tags}</div>'
-    msg=f'Hola {first}, te escribo desde la web de Esentia. Quisiera hacer una consulta.'
-    mail=f'<a class="btn ghost" href="mailto:{p["mail"]}">{p["mail"]}</a>' if p.get("mail") else ""
-    others=[k for gid,_,_,ks in GROUPS if gid in [g[0] for g in groups] for k in ks if slug(k)!=sl]
-    seen=set(); others=[k for k in others if not (slug(k) in seen or seen.add(slug(k)))]
+    p = P[sl]; first = p["nombre"].split()[0]; gid, gname = GROUP_OF[sl]
+    tags = "".join(f"<li>{E_(t)}</li>" for t in p["tags"])
+    tags = f'<ul class="tags" aria-label="Atiende">{tags}</ul>' if tags else ""
+    role0 = p["role"].split(" · ")[0]
+    msg = f'Hola {first}, te escribo desde la web de Esentia. Quisiera hacer una consulta.'
+    btn = f'<a class="btn wa" href="{wa(p["wa"],msg)}" target="_blank" rel="noopener">{ICON_CHAT} Escribir a {E_(first)} por WhatsApp</a>' if p["wa"] else ""
+    mail = f'<a class="btn ghost" href="mailto:{E_(p["mail"])}">{E_(p["mail"])}</a>' if p["mail"] else ""
+    cta = f'<div class="prof-cta">{btn}{mail}</div>' if (btn or mail) else ""
+    foto = (f'<img class="prof-photo" src="{E_(p["foto"])}" alt="{E_(p["nombre"])}, {E_(role0)} en Esentia Villa María">' if p["foto"]
+            else f'<div class="prof-photo prof-ini" aria-hidden="true"><span>{iniciales(p["nombre"])}</span></div>')
+    others = [k for g, _, _, ks in GROUPS if g == gid for k in ks if k != sl]
     if others:
-        more=f'<section class="sec"><div class="wrap"><div class="group-head"><h2>Otras profesionales de {groups[0][1] if len(groups)==1 else "estas especialidades"}</h2><p><a href="profesionales.html">Ver todo el equipo</a></p></div><div class="cards mini">{"".join(card(k) for k in others)}</div></div></section>'
+        more=f'<section class="sec"><div class="wrap"><div class="group-head"><h2>Más profesionales de {E_(gname)}</h2><p><a href="profesionales.html">Ver todo el equipo</a></p></div><div class="cards mini">{"".join(card(k) for k in others)}</div></div></section>'
     else:
         more='<section class="sec"><div class="wrap"><div class="row"><a class="btn ghost" href="profesionales.html">Conocé a todo el equipo de Esentia</a></div></div></section>'
     body=f'''<section class="sec tint prof-sec"><div class="wrap">
-<nav class="crumbs" aria-label="Ruta"><a href="profesionales.html">Profesionales</a> <span aria-hidden="true">/</span> <span>{p["nombre"]}</span></nav>
+<nav class="crumbs" aria-label="Ruta"><a href="profesionales.html">Profesionales</a> <span aria-hidden="true">/</span> <span>{E_(p["nombre"])}</span></nav>
 <div class="prof">
-<img class="prof-photo" src="img/{p["foto"]}" alt="{p["nombre"]}, {p["role"].split(" · ")[0]} en Esentia Villa María" width="600" height="800">
+{foto}
 <div class="prof-info">
-<span class="eyebrow">{" · ".join(g[1] for g in groups)}</span>
-<h1>{p["nombre"]}</h1>
-{specs}
-<div class="prof-cta"><a class="btn wa" href="{wa(p["wa"],msg)}" target="_blank" rel="noopener">{ICON_CHAT} Escribir a {first} por WhatsApp</a>{mail}</div>
+<span class="eyebrow">{E_(gname)}</span>
+<h1>{E_(p["nombre"])}</h1>
+<div class="spec"><p class="role">{E_(p["role"])}</p>{desc_html(p["desc"])}{tags}</div>
+{cta}
 <p class="note">Atiende en Esentia · {ADDR}, {CITY}. <a href="{MAPS}" target="_blank" rel="noopener">Ver mapa</a></p>
 </div></div></div></section>
 {more}'''
-    role0=p["role"].split(" · ")[0]
-    ld=[{"@context":"https://schema.org","@type":"Person","name":p["nombre"],"jobTitle":[P[k]["role"] for k in keys],"description":p["desc"],"image":BASE+"/img/"+p["foto"],"telephone":"+"+p["wa"],**({"email":p["mail"]} if p.get("mail") else {}),"worksFor":{"@id":BASE+"/#esentia"},"workLocation":{"@id":BASE+"/#esentia"}}]
+    ld=[{"@context":"https://schema.org","@type":"Person","name":p["nombre"],"jobTitle":p["role"],"description":p["desc"],
+         **({"image":BASE+"/"+p["foto"]} if p["foto"] and not p["foto"].startswith("http") else {}),
+         **({"telephone":"+"+p["wa"]} if p["wa"] else {}),**({"email":p["mail"]} if p["mail"] else {}),
+         "worksFor":{"@id":BASE+"/#esentia"},"workLocation":{"@id":BASE+"/#esentia"}}]
+    d = _plain(p["desc"]) or f"{p['nombre']}, {role0} en Esentia, Villa María."
     html=page(f"{p['nombre']} · {role0} en Villa María | Esentia",
-              (p["desc"][:150].rsplit(" ",1)[0]+"…").replace('"',''),
-              f"/profesionales/{sl}.html","profesionales.html",body,ld)
-    html=re.sub(r'(href|src)="(?!https?:|mailto:|#|data:|/)([^"]+)"', r'\1="../\2"', html)
-    return html
+              E_((d[:150].rsplit(" ",1)[0]+"…") if len(d) > 150 else d),
+              f"/profesionales/{sl}.html","profesionales.html",body,ld,
+              og_img=(p["foto"] if p["foto"] and not p["foto"].startswith("http") else "img/og.jpg"))
+    return deepen(html)
 
 # ---------- noticias (content/noticias/*.md) ----------
-import glob, html as _html, unicodedata, datetime as _dt
-MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]
-
-def _simple_yaml(txt):
-    d = {}; key = None
-    for ln in txt.splitlines():
-        m = re.match(r'^([A-Za-z_][\w-]*):\s*(.*)$', ln)
-        if m and not ln.startswith(" "):
-            key = m.group(1); v = m.group(2).strip()
-            if v in ("|", ">", "|-", ">-", "|+", ">+"): v = ""
-            if len(v) > 1 and v[0] == v[-1] and v[0] in "\"'": v = v[1:-1]
-            d[key] = v
-        elif key and ln.strip():
-            d[key] = (str(d[key]) + " " + ln.strip()).strip()
-    return d
-
-def _simple_md(t):
-    def inline(x):
-        x = re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', r'<img src="\2" alt="\1">', x)
-        x = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', x)
-        x = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', x)
-        return re.sub(r'(?<![\w*])\*(.+?)\*(?!\w)', r'<em>\1</em>', x)
-    out = []
-    for b in re.split(r'\n\s*\n', t.strip()):
-        b = b.strip()
-        if not b: continue
-        if b.startswith("<"): out.append(b); continue
-        h = re.match(r'^(#{1,4})\s+(.*)$', b)
-        ls = b.splitlines()
-        if h: n = max(2, min(len(h.group(1)), 4)); out.append(f"<h{n}>{inline(h.group(2))}</h{n}>")
-        elif all(re.match(r'^\s*[-*]\s+', l) for l in ls): out.append("<ul>" + "".join("<li>" + inline(re.sub(r'^\s*[-*]\s+', '', l)) + "</li>" for l in ls) + "</ul>")
-        elif all(re.match(r'^\s*\d+[.)]\s+', l) for l in ls): out.append("<ol>" + "".join("<li>" + inline(re.sub(r'^\s*\d+[.)]\s+', '', l)) + "</li>" for l in ls) + "</ol>")
-        elif all(l.startswith(">") for l in ls): out.append("<blockquote><p>" + inline(" ".join(l.lstrip("> ") for l in ls)) + "</p></blockquote>")
-        else: out.append("<p>" + inline(b.replace("\n", "<br>")) + "</p>")
-    return "\n".join(out)
-
-def _yaml(txt):
-    try:
-        import yaml
-        return yaml.safe_load(txt) or {}
-    except Exception:
-        return _simple_yaml(txt)
-
-def _md(txt):
-    try:
-        import markdown
-        return markdown.markdown(txt, extensions=["extra", "sane_lists"])
-    except Exception:
-        return _simple_md(txt)
-
-def _slugify(x):
-    x = unicodedata.normalize("NFKD", x).encode("ascii", "ignore").decode()
-    return re.sub(r'[^a-z0-9]+', '-', x.lower()).strip('-')[:70] or "nota"
-
-def _date(v, fn):
-    if isinstance(v, _dt.datetime): return v.date()
-    if isinstance(v, _dt.date): return v
-    m = re.search(r'(\d{4})-(\d{2})-(\d{2})', str(v or "") + " " + fn)
-    return _dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else _dt.date.today()
-
-def _rel(u):
-    u = (u or "").strip()
-    return u.lstrip("/") if u.startswith("/") and not u.startswith("//") else u
-
-def _plain(h): return re.sub(r'\s+', ' ', _html.unescape(re.sub(r'<[^>]+>', ' ', h))).strip()
-
 POSTS = []
 for fn in sorted(glob.glob("content/noticias/*.md")):
     raw = open(fn, encoding="utf-8").read()
@@ -313,7 +357,6 @@ for fn in sorted(glob.glob("content/noticias/*.md")):
                       slug=_slugify(re.sub(r'^\d{4}-\d{2}-\d{2}-', '', os.path.basename(fn)[:-3]) or titulo)))
 POSTS.sort(key=lambda x: x["fecha"], reverse=True)
 def fecha_txt(d): return f"{d.day} de {MESES[d.month-1]} de {d.year}"
-E_ = _html.escape
 
 def post_card(x):
     im = f'<div class="ph"><img src="{E_(x["img"])}" alt="" loading="lazy"></div>' if x["img"] else '<div class="ph ph-empty"><img src="img/isotipo-blanco.png" alt="" loading="lazy"></div>'
@@ -370,7 +413,6 @@ else:
     ig_home = ""; IG_SCRIPT = ""
 
 # ---------- index ----------
-mosaic = ["macarena-pantanetti.jpg","mayra-marzioni.jpg","nadia-prytz-nilsson.jpg","emilia-cena.jpg","malena-donato.jpg","perla-faccia.jpg"]
 chips = "".join(f'<li><a href="profesionales.html#{gid}">{name} <span>{len(ks)}</span></a></li>' for gid,name,_,ks in GROUPS)
 index_body = f'''
 <section class="hero navy">{CURVES}
@@ -378,7 +420,7 @@ index_body = f'''
 <div class="hero-copy">
 <span class="eyebrow">Villa María, Córdoba</span>
 <h1>Profesionales de la salud, <span>juntos en un mismo espacio</span></h1>
-<p class="lead">Esentia reúne a profesionales de psicopedagogía, psicología, terapia ocupacional y crianza que trabajan de forma interdisciplinaria. También alquilamos consultorios por hora a colegas que quieran sumarse.</p>
+<p class="lead">Esentia reúne a profesionales de {ESPECIALIDADES} que trabajan de forma interdisciplinaria. También alquilamos consultorios por hora a colegas que quieran sumarse.</p>
 <div class="row"><a class="btn mint" href="profesionales.html">Conocé a los profesionales {ICON_ARROW}</a><a class="btn outline-w" href="alquiler-consultorios.html">Alquilar un consultorio</a></div>
 </div>
 <div class="collage">
@@ -429,12 +471,12 @@ persons = []
 for gid,name,_,ks in GROUPS:
     for k in ks:
         p=P[k]
-        persons.append({"@type":"Person","name":p["nombre"],"jobTitle":p["role"],"image":BASE+"/img/"+p["foto"],"telephone":"+"+p["wa"],"worksFor":{"@id":BASE+"/#esentia"},"knowsAbout":name})
+        persons.append({"@type":"Person","name":p["nombre"],"jobTitle":p["role"],**({"image":BASE+"/"+p["foto"]} if p["foto"] and not p["foto"].startswith("http") else {}),**({"telephone":"+"+p["wa"]} if p["wa"] else {}),"url":f"{BASE}/profesionales/{k}.html","worksFor":{"@id":BASE+"/#esentia"},"knowsAbout":name})
 prof_ld = [{"@context":"https://schema.org","@type":"ItemList","name":"Profesionales de Esentia","itemListElement":[{"@type":"ListItem","position":i+1,"item":x} for i,x in enumerate(persons)]}]
 prof_body = f'''
 <section class="sec navy-head">{CURVES}<div class="wrap">
 <div class="sec-head"><span class="eyebrow">Profesionales</span><h1 style="font-size:clamp(34px,5vw,54px)">Quiénes atienden en Esentia</h1>
-<p class="lead">Psicopedagogas, psicólogas, terapeuta ocupacional y acompañamiento en crianza en Villa María. Tocá cada profesional para conocer a qué se dedica y escribirle directo por WhatsApp.</p></div>
+<p class="lead">Profesionales de {ESPECIALIDADES} en Villa María. Tocá cada profesional para conocer a qué se dedica y escribirle directo por WhatsApp.</p></div>
 <ul class="chips">{chips.replace('profesionales.html#','#')}</ul>
 </div></section>
 <div class="sec" style="padding-top:48px"><div class="wrap">{groups_html}</div></div>
@@ -527,10 +569,10 @@ alq_body = f'''
 
 pages = {
  "index.html": page("Esentia | Comunidad Profesional de Salud en Villa María",
-   "Psicopedagogía, psicología, terapia ocupacional y crianza en Villa María, Córdoba. Conocé a los profesionales de Esentia y alquilá consultorios por hora.",
+   (ESPECIALIDADES[:1].upper() + ESPECIALIDADES[1:] + " en Villa María, Córdoba. Conocé a los profesionales de Esentia y alquilá consultorios por hora.")[:300],
    "/", "index.html", index_body),
  "profesionales.html": page("Profesionales de la salud en Villa María | Esentia",
-   "Psicopedagogas, psicólogas, terapeuta ocupacional y acompañamiento en crianza en Villa María. Conocé a cada profesional de Esentia y escribile por WhatsApp.",
+   ("Profesionales de " + ESPECIALIDADES + " en Villa María. Conocé a cada profesional de Esentia y escribile por WhatsApp.")[:300],
    "/profesionales.html", "profesionales.html", prof_body, prof_ld),
  "alquiler-consultorios.html": page("Alquiler de consultorios por hora en Villa María | Esentia",
    "Alquilá consultorios equipados por hora o por módulo en Villa María. Precios por grupo según horas mensuales. Pedí una entrevista por WhatsApp.",
@@ -546,7 +588,7 @@ for sl, h in POST_PAGES.items(): open(os.path.join(OUT, "noticias", sl + ".html"
 for fn, html in pages.items():
     open(os.path.join(OUT, fn), "w").write(html)
 os.makedirs(os.path.join(OUT,"profesionales"),exist_ok=True)
-SLUGS=list(dict.fromkeys(slug(k) for k in P))
+SLUGS=[k for _,_,_,ks in GROUPS for k in ks]
 DETAIL={sl:detail(sl) for sl in SLUGS}
 for sl,h in DETAIL.items(): open(os.path.join(OUT,"profesionales",sl+".html"),"w").write(h)
 

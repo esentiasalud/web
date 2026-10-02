@@ -317,3 +317,10 @@ a.card.post h3{font-size:21px}
 .prose a{color:var(--accent-ink)}
 .art-share{margin-top:40px;padding-top:24px;border-top:1px solid var(--line)}
 behold-widget{display:block;min-height:120px}
+
+/* perfiles sin foto */
+.card .ph.ph-ini,.prof-ini{background:linear-gradient(140deg,var(--navy),#31456f);display:grid;place-items:center;color:#fff}
+.card .ph.ph-ini span{font-size:clamp(34px,6vw,54px);font-weight:500;letter-spacing:.04em;color:#cfe6e0}
+.prof-ini{aspect-ratio:1/1;max-width:300px}
+.prof-ini span{font-size:84px;font-weight:500;letter-spacing:.04em;color:#cfe6e0}
+.spec .desc+.desc{margin-top:.2em}
