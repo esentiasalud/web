@@ -5,7 +5,59 @@ media:
     output: /media/noticias
     extensions: [jpg, jpeg, png, webp]
     rename: safe
+  - name: profesionales
+    label: Fotos de profesionales
+    input: repositorio/media/profesionales
+    output: /media/profesionales
+    extensions: [jpg, jpeg, png, webp]
+    rename: safe
 content:
+  - name: profesionales
+    label: Profesionales
+    type: collection
+    path: repositorio/content/profesionales
+    format: yaml-frontmatter
+    filename: "{primary}.md"
+    view:
+      fields: [nombre, especialidad]
+      primary: nombre
+      sort: [nombre, especialidad]
+    fields:
+      - name: nombre
+        label: Nombre y apellido
+        type: string
+        required: true
+      - name: especialidad
+        label: Especialidad (grupo donde aparece, ej. Psicología)
+        type: string
+        required: true
+      - name: titulo
+        label: Título que se muestra (ej. Lic. en Psicología · MP 1234)
+        type: string
+      - name: descripcion
+        label: Descripción
+        type: text
+      - name: atiende
+        label: Atiende (separado por comas, ej. Niños, Adultos, CUD)
+        type: string
+      - name: whatsapp
+        label: WhatsApp (con característica, sin 0 ni 15)
+        type: string
+      - name: email
+        label: Email (opcional)
+        type: string
+      - name: foto
+        label: Foto (opcional)
+        type: image
+        options:
+          media: profesionales
+      - name: orden
+        label: Orden dentro de su especialidad (número más chico aparece primero)
+        type: number
+      - name: oculto
+        label: Ocultar de la web
+        type: boolean
+        default: false
   - name: noticias
     label: Noticias
     type: collection
