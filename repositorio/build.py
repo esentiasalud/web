@@ -64,6 +64,10 @@ TARIFAS_JSON = json.dumps([{"n": t["n"], "hora": t["hora"], "modulo": t["modulo"
 _H = 2 * 4 * 4
 _g = TARIFAS[2] if _H > 30 else (TARIFAS[1] if _H >= 15 else TARIFAS[0])
 CALC0 = dict(grp=_g["n"], total=pesos(_g["modulo"] * 8).replace("$", "$ "), dia=pesos(_g["modulo"]).replace("$", "$ "), hora=pesos(_g["modulo"] / 4).replace("$", "$ "))
+GA_ID = re.sub(r'[^A-Za-z0-9-]', '', str(AJ.get("ga_id") or "G-S7PMPSH3R9"))  # Google Analytics
+GA_TAGS = (f'\n<script async src="https://www.googletagmanager.com/gtag/js?id={GA_ID}"></script>\n<script src="analytics.js"></script>' if GA_ID else "")
+if GA_ID:
+    open(os.path.join(OUT, "analytics.js"), "w").write("window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','" + GA_ID + "');\n")
 INSTAGRAM = (AJ.get("instagram") or "").strip().lstrip("@").rstrip("/").split("/")[-1]
 BEHOLD_ID = (AJ.get("behold_feed_id") or "").strip()
 CURVES = '<img class="wm" src="img/isotipo-blanco.png" alt="" width="800" height="674"><svg class="curves" viewBox="0 0 600 400" preserveAspectRatio="xMaxYMin slice" aria-hidden="true"><path d="M180 -20 C 200 140, 420 120, 460 260 S 560 420, 640 380" fill="none" stroke="#6cc3b0" stroke-width="2"/><path d="M640 120 C 560 130, 520 220, 600 300" fill="none" stroke="#6cc3b0" stroke-width="2" opacity=".7"/></svg>'
@@ -239,12 +243,13 @@ def head(title, desc, path, extra_ld=None, og_img="img/og.jpg"):
 <meta property="og:url" content="{url}">
 <meta property="og:image" content="{BASE}/{og_img}">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" type="image/png" href="favicon.png">
+<link rel="icon" href="favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="192x192" href="favicon.png">
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css">{GA_TAGS}
 {ldtxt}'''
 
 IG_URL = f"https://www.instagram.com/{INSTAGRAM}/" if INSTAGRAM else ""
@@ -570,7 +575,7 @@ alq_body = f'''
 pages = {
  "index.html": page("Esentia | Comunidad Profesional de Salud en Villa María",
    (ESPECIALIDADES[:1].upper() + ESPECIALIDADES[1:] + " en Villa María, Córdoba. Conocé a los profesionales de Esentia y alquilá consultorios por hora.")[:300],
-   "/", "index.html", index_body),
+   "/", "index.html", index_body, [{"@context":"https://schema.org","@type":"WebSite","name":"Esentia","alternateName":["Esentia Salud","Esentia Comunidad Profesional de Salud"],"url":BASE+"/"}]),
  "profesionales.html": page("Profesionales de la salud en Villa María | Esentia",
    ("Profesionales de " + ESPECIALIDADES + " en Villa María. Conocé a cada profesional de Esentia y escribile por WhatsApp.")[:300],
    "/profesionales.html", "profesionales.html", prof_body, prof_ld),
@@ -602,7 +607,7 @@ open(os.path.join(OUT,"_headers"),"w").write("""/*
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
-  Content-Security-Policy: default-src 'self'; img-src 'self' data: https:; media-src 'self' https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' https://w.behold.so; connect-src 'self' https://*.behold.so; frame-ancestors 'none'; base-uri 'self'; form-action 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; img-src 'self' data: https:; media-src 'self' https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' https://w.behold.so https://*.googletagmanager.com; connect-src 'self' https://*.behold.so https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; frame-ancestors 'none'; base-uri 'self'; form-action 'none'; upgrade-insecure-requests
 """)
 open(os.path.join(OUT,"404.html"),"w").write(page("Página no encontrada | Esentia","Esta página no existe.","/404.html","",
   '<section class="sec"><div class="wrap"><div class="sec-head"><h1>No encontramos esta página</h1><p class="lead">Puede que el enlace haya cambiado.</p><div class="row"><a class="btn primary" href="index.html">Ir al inicio</a></div></div></div></section>').replace('content="index,follow"','content="noindex"'))
@@ -611,6 +616,10 @@ open(os.path.join(OUT,"404.html"),"w").write(page("Página no encontrada | Esent
 PV = os.environ.get("ESENTIA_PREVIEW")
 if PV:
     css = open(os.path.join(OUT,"styles.css")).read()
+    def _noga(h): return re.sub(r'\n<script async src="https://www\.googletagmanager\.com[^\n]*\n<script src="(?:\.\./)?analytics\.js"></script>', '', h)
+    pages = {k: _noga(v) for k, v in pages.items()}
+    DETAIL = {k: _noga(v) for k, v in DETAIL.items()}
+    POST_PAGES = {k: _noga(v) for k, v in POST_PAGES.items()}
     js = open(os.path.join(OUT,"main.js")).read()
     os.makedirs(PV+"/img", exist_ok=True)
     for f in os.listdir(os.path.join(OUT,"img")): shutil.copy(os.path.join(OUT,"img",f), PV+"/img/"+f)
