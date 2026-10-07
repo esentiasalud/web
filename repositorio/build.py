@@ -274,6 +274,15 @@ def footer():
 <p class="legal">© {date.today().year} Esentia · Comunidad Profesional de Salud · Villa María, Córdoba, Argentina</p>
 </div></footer>'''
 
+def publish(html):
+    """Direcciones sin .html: es como Netlify sirve las páginas, así Google no encuentra redirecciones."""
+    html = re.sub(re.escape(BASE) + r'(/[A-Za-z0-9/_-]*)\.html', lambda m: BASE + m.group(1), html)
+    def _rel_link(m):
+        pre, name, frag = m.group(1), m.group(2), m.group(3) or ""
+        if name == "index": return f'href="{pre or "./"}{frag}"'
+        return f'href="{pre}{name}{frag}"'
+    return re.sub(r'href="((?:\.\./)*)([^":#?]*?)\.html(#[^"]*)?"', _rel_link, html)
+
 def deepen(html):
     return re.sub(r'(href|src)="(?!https?:|mailto:|#|data:|/)([^"]+)"', r'\1="../\2"', html)
 
@@ -369,7 +378,7 @@ def post_card(x):
 <div class="bd"><span class="date">{fecha_txt(x["fecha"])}</span><h3>{E_(x["titulo"])}</h3><p class="desc">{E_(x["resumen"])}</p><span class="more">Leer nota {ICON_ARROW}</span></div></a>'''
 
 def post_page(x):
-    url = f"{BASE}/noticias/{x['slug']}.html"
+    url = f"{BASE}/noticias/{x['slug']}"
     im = f'<img class="art-img" src="{E_(x["img"])}" alt="">' if x["img"] else ""
     autor = f' · Por {E_(x["autor"])}' if x["autor"] else ""
     otros = [y for y in POSTS if y is not x][:3]
@@ -589,18 +598,18 @@ pages = {
 if IG_SCRIPT: pages["index.html"] = pages["index.html"].replace("\n</body>", IG_SCRIPT + "\n</body>")
 POST_PAGES = {x["slug"]: post_page(x) for x in POSTS}
 os.makedirs(os.path.join(OUT, "noticias"), exist_ok=True)
-for sl, h in POST_PAGES.items(): open(os.path.join(OUT, "noticias", sl + ".html"), "w", encoding="utf-8").write(h)
+for sl, h in POST_PAGES.items(): open(os.path.join(OUT, "noticias", sl + ".html"), "w", encoding="utf-8").write(publish(h))
 for fn, html in pages.items():
-    open(os.path.join(OUT, fn), "w").write(html)
+    open(os.path.join(OUT, fn), "w").write(publish(html))
 os.makedirs(os.path.join(OUT,"profesionales"),exist_ok=True)
 SLUGS=[k for _,_,_,ks in GROUPS for k in ks]
 DETAIL={sl:detail(sl) for sl in SLUGS}
-for sl,h in DETAIL.items(): open(os.path.join(OUT,"profesionales",sl+".html"),"w").write(h)
+for sl,h in DETAIL.items(): open(os.path.join(OUT,"profesionales",sl+".html"),"w").write(publish(h))
 
 open(os.path.join(OUT,"robots.txt"),"w").write(f"User-agent: *\nAllow: /\n\nSitemap: {BASE}/sitemap.xml\n")
 today = date.today().isoformat()
 urls = "".join(f"<url><loc>{BASE}{p}</loc><lastmod>{today}</lastmod></url>" for p in ["/","/profesionales.html","/alquiler-consultorios.html","/noticias.html"]+[f"/profesionales/{x}.html" for x in SLUGS]+[f"/noticias/{x}.html" for x in POST_PAGES])
-open(os.path.join(OUT,"sitemap.xml"),"w").write(f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n')
+open(os.path.join(OUT,"sitemap.xml"),"w").write(f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{publish(urls)}</urlset>\n')
 open(os.path.join(OUT,"_headers"),"w").write("""/*
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   X-Content-Type-Options: nosniff
