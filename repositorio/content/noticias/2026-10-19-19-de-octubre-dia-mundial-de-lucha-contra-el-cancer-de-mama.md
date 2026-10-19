@@ -1,5 +1,5 @@
 ---
-title: "**19 de octubre: Día Mundial de Lucha contra el Cáncer de Mama**"
+title: "19 de octubre: Día Mundial de Lucha contra el Cáncer de Mama"
 date: 2026-10-19
 image: /media/noticias/noticia-web-16009001x-1.png
 summary: Este 19 de octubre, Día Mundial de Lucha contra el Cáncer de Mama, te
